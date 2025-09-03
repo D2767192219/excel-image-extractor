@@ -40,3 +40,10 @@ Desktop.ini
 # Test files
 副本夹内测试标找图.xlsx
 *.zip 
+*测试*.xlsx
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+dist.zip
+extracted_images.zip 
