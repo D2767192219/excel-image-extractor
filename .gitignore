@@ -35,4 +35,8 @@ wheels/
 # Windows
 Thumbs.db
 ehthumbs.db
-Desktop.ini 
+Desktop.ini
+
+# Test files
+副本夹内测试标找图.xlsx
+*.zip 
