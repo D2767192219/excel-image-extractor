@@ -1,0 +1,64 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送版本标签时触发，比如 v1.0.0
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]  # 同时在 Windows 和 macOS 环境构建
+        python-version: ['3.8']
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller openpyxl pillow
+
+    - name: Build with PyInstaller
+      run: |
+        python build.py
+
+    - name: Create Release Archive
+      shell: bash
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          7z a -tzip Excel图片提取器-Windows.zip ./dist/*
+        else
+          zip -r Excel图片提取器-macOS.zip ./dist/*
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: Excel图片提取器-${{ matrix.os }}
+        path: Excel图片提取器-*.zip
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v2
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          **/Excel图片提取器-*.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
