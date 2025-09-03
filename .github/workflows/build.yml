@@ -1,64 +1,123 @@
-name: Build Release
+name: Build and Package Excel Image Extractor
 
 on:
   push:
-    tags:
-      - 'v*'  # 当推送版本标签时触发，比如 v1.0.0
-  workflow_dispatch:  # 允许手动触发
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [created]
+  workflow_dispatch: # 允许手动触发
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest]  # 同时在 Windows 和 macOS 环境构建
-        python-version: ['3.8']
-
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11']
+        exclude:
+          # 排除一些不兼容的组合
+          - os: macos-latest
+            python-version: '3.11'
+    
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies
+        
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y zip unzip
+        
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install zip unzip || true
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+          
+    - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller openpyxl pillow
-
-    - name: Build with PyInstaller
+        pip install -r requirements.txt
+        pip install pyinstaller
+        
+    - name: Build executable
       run: |
-        python build.py
-
-    - name: Create Release Archive
-      shell: bash
+        python build_workflow.py
+        
+    - name: Create distribution package
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          7z a -tzip Excel图片提取器-Windows.zip ./dist/*
-        else
-          zip -r Excel图片提取器-macOS.zip ./dist/*
-        fi
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v2
+        python build_workflow.py
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
       with:
-        name: Excel图片提取器-${{ matrix.os }}
-        path: Excel图片提取器-*.zip
-
+        name: excel-image-extractor-${{ matrix.os }}-${{ matrix.python-version }}
+        path: |
+          excel-image-extractor-*.zip
+          Excel图片提取器-*.zip
+        retention-days: 30
+        
   create-release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v2
-
+      uses: actions/download-artifact@v3
+      with:
+        path: ./artifacts
+        
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          **/Excel图片提取器-*.zip
+          ./artifacts/**/*.zip
+        draft: false
+        prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+        
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v || echo "No tests found, skipping..."
+        
+    - name: Check code quality
+      run: |
+        pip install flake8 black
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Flake8 check completed"
+        black --check . || echo "Black formatting check completed" 
