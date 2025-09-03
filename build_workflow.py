@@ -53,11 +53,18 @@ def build_executable():
 block_cipher = None
 
 a = Analysis(
-    ['excel_image_extractor_gui.py'],
+    ['excel_image_extractor_gui.py', 'simple_excel_image_extractor.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['PIL._tkinter_finder'],
+    hiddenimports=[
+        'PIL._tkinter_finder',
+        'openpyxl',
+        'pandas',
+        'pathlib',
+        'tkinter',
+        'xml.etree.ElementTree'
+    ],
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],
@@ -100,11 +107,18 @@ exe = EXE(
 block_cipher = None
 
 a = Analysis(
-    ['excel_image_extractor_gui.py'],
+    ['excel_image_extractor_gui.py', 'simple_excel_image_extractor.py'],
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['PIL._tkinter_finder'],
+    hiddenimports=[
+        'PIL._tkinter_finder',
+        'openpyxl',
+        'pandas',
+        'pathlib',
+        'tkinter',
+        'xml.etree.ElementTree'
+    ],
     hookspath=[],
     hooksconfig={{}},
     runtime_hooks=[],
@@ -201,7 +215,7 @@ def main():
     print(f"Python版本: {sys.version}")
     
     # 检查必要文件
-    required_files = ["excel_image_extractor_gui.py", "requirements.txt"]
+    required_files = ["excel_image_extractor_gui.py", "simple_excel_image_extractor.py", "requirements.txt"]
     for file in required_files:
         if not os.path.exists(file):
             print(f"错误: 找不到必要文件 {file}")
